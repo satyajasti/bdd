@@ -12,6 +12,7 @@ def get_snowflake_connection(config_file):
     config = read_connection_details(config_file)
     snowflake_details = config['snowflake']
     
+    # Create the Snowflake connection
     conn = snowflake.connector.connect(
         user=snowflake_details.get('user'),
         password=snowflake_details.get('password'),
@@ -20,4 +21,26 @@ def get_snowflake_connection(config_file):
         database=snowflake_details.get('database'),
         schema=snowflake_details.get('schema')
     )
-    return conn, config['table_name']
+    
+    return conn, snowflake_details.get('database'), snowflake_details.get('schema'), config.get('table_name')
+
+# Function to fetch primary key columns dynamically from Snowflake
+def get_primary_keys(conn, schema_name, table_name):
+    query = f"""
+        SELECT column_name
+        FROM {schema_name}.INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+        WHERE table_name = '{table_name}'
+        AND table_schema = '{schema_name}'
+        AND constraint_name IN (
+            SELECT constraint_name 
+            FROM {schema_name}.INFORMATION_SCHEMA.TABLE_CONSTRAINTS
+            WHERE table_name = '{table_name}' 
+            AND table_schema = '{schema_name}'
+            AND constraint_type = 'PRIMARY KEY'
+        )
+    """
+    cur = conn.cursor()
+    cur.execute(query)
+    primary_keys = [row[0] for row in cur.fetchall()]
+    cur.close()
+    return primary_keys
