@@ -14,10 +14,6 @@ def get_columns_from_table(conn, schema_name, table_name):
     columns = [row[0] for row in cur.fetchall()]
     cur.close()
     
-    # Limit the columns to 100 if there are more than 100
-    if len(columns) > 100:
-        columns = columns[:100]
-    
     return columns
 
 # Function to fetch distinct values for columns and write to Excel
@@ -26,23 +22,22 @@ def fetch_distinct_values(conn, schema_name, table_name, columns, output_file):
     data_list = []
 
     for column in columns:
-        query = f"SELECT DISTINCT {column} FROM {schema_name}.{table_name}"
+        # Get distinct values, limit to 100
+        query = f"SELECT DISTINCT {column} FROM {schema_name}.{table_name} LIMIT 100"
         print(f"Executing query: {query}")
         cur.execute(query)
         data = cur.fetchall()
 
-        # Add the column header to the list
-        data_list.append([f'Column "{column}":'])
-        
-        # Add the distinct values to the list
+        # Add the column header to the list and collect up to 100 distinct values
+        data_list.append([f'Column "{column}":', None])  # Column name in A, empty in B
         for row in data:
-            data_list.append([row[0]])
-        
+            data_list.append([None, row[0]])  # None in A, value in B
+
         # Add an empty row for separation
-        data_list.append([''])
+        data_list.append([None, None])
 
     # Create a DataFrame from the list
-    df_combined = pd.DataFrame(data_list, columns=['Distinct_Values'])
+    df_combined = pd.DataFrame(data_list, columns=['Column_Name', 'Distinct_Values'])
 
     # Print the DataFrame to the console
     print("\nDistinct values for each column:")
@@ -59,7 +54,7 @@ if __name__ == "__main__":
     # Get connection, schema, and table name from JSON config
     conn, database_name, schema_name, table_name = get_snowflake_connection('config.json')
 
-    # Dynamically get columns from the table, limit to 100 columns
+    # Dynamically get columns from the table
     columns = get_columns_from_table(conn, schema_name, table_name)
 
     # Output file for distinct values
