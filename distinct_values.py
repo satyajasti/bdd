@@ -1,19 +1,32 @@
 import pandas as pd
 from snowflake_connection import get_snowflake_connection
 
-# Function to read column names from a text file
-def read_columns_from_file(file_path):
-    with open(file_path, 'r') as file:
-        columns = [line.strip() for line in file.readlines() if line.strip()]
+# Function to get column names from the specified table in Snowflake
+def get_columns_from_table(conn, schema_name, table_name):
+    query = f"""
+        SELECT COLUMN_NAME 
+        FROM {schema_name}.INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_NAME = '{table_name}' 
+        AND TABLE_SCHEMA = '{schema_name}'
+    """
+    cur = conn.cursor()
+    cur.execute(query)
+    columns = [row[0] for row in cur.fetchall()]
+    cur.close()
+    
+    # Limit the columns to 100 if there are more than 100
+    if len(columns) > 100:
+        columns = columns[:100]
+    
     return columns
 
 # Function to fetch distinct values for columns and write to Excel
-def fetch_distinct_values(conn, table_name, columns, output_file):
+def fetch_distinct_values(conn, schema_name, table_name, columns, output_file):
     cur = conn.cursor()
     data_list = []
 
     for column in columns:
-        query = f"SELECT DISTINCT {column} FROM {table_name}"
+        query = f"SELECT DISTINCT {column} FROM {schema_name}.{table_name}"
         print(f"Executing query: {query}")
         cur.execute(query)
         data = cur.fetchall()
@@ -43,16 +56,15 @@ def fetch_distinct_values(conn, table_name, columns, output_file):
     cur.close()
 
 if __name__ == "__main__":
-    # Get connection and table name from JSON config
-    conn, table_name = get_snowflake_connection('config.json')
-    
-    # Path to the text file containing column names
-    column_file_path = 'columns.txt'
-    columns = read_columns_from_file(column_file_path)
+    # Get connection, schema, and table name from JSON config
+    conn, database_name, schema_name, table_name = get_snowflake_connection('config.json')
+
+    # Dynamically get columns from the table, limit to 100 columns
+    columns = get_columns_from_table(conn, schema_name, table_name)
 
     # Output file for distinct values
     output_file = 'formatted_distinct_values.xlsx'
-    fetch_distinct_values(conn, table_name, columns, output_file)
+    fetch_distinct_values(conn, schema_name, table_name, columns, output_file)
 
     # Close the Snowflake connection
     conn.close()
