@@ -1,14 +1,25 @@
 import pandas as pd
 from snowflake_connection import get_snowflake_connection
 
-# Function to read column names from a text file
-def read_columns_from_file(file_path):
-    with open(file_path, 'r') as file:
-        columns = [line.strip() for line in file.readlines() if line.strip()]
+# Function to get column names from the specified table in Snowflake
+def get_columns_from_table(conn, table_name):
+    query = f"""
+        SELECT COLUMN_NAME 
+        FROM INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_NAME = '{table_name}' 
+        AND TABLE_SCHEMA = (SELECT CURRENT_SCHEMA())
+    """
+    cur = conn.cursor()
+    cur.execute(query)
+    columns = [row[0] for row in cur.fetchall()]
+    cur.close()
     return columns
 
 # Function to check columns for NULL values and write to Excel
-def check_null_columns(conn, table_name, columns, output_file):
+def check_null_columns(conn, table_name, output_file):
+    # Dynamically get column names from the table
+    columns = get_columns_from_table(conn, table_name)
+    
     cur = conn.cursor()
     null_columns = []
 
@@ -39,14 +50,10 @@ def check_null_columns(conn, table_name, columns, output_file):
 if __name__ == "__main__":
     # Get connection and table name from JSON config
     conn, table_name = get_snowflake_connection('config.json')
-    
-    # Path to the text file containing column names
-    column_file_path = 'columns.txt'
-    columns = read_columns_from_file(column_file_path)
 
     # Output file for null columns
     output_file = 'null_columns.xlsx'
-    check_null_columns(conn, table_name, columns, output_file)
+    check_null_columns(conn, table_name, output_file)
 
     # Close the Snowflake connection
     conn.close()
