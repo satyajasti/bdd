@@ -1,0 +1,77 @@
+import snowflake.connector
+import pandas as pd
+
+# Function to create a Snowflake connection
+def get_snowflake_connection():
+    conn = snowflake.connector.connect(
+        user='<YOUR_USER>',
+        password='<YOUR_PASSWORD>',
+        account='<YOUR_ACCOUNT>',
+        warehouse='<YOUR_WAREHOUSE>',
+        database='<YOUR_DATABASE>',
+        schema='<YOUR_SCHEMA>'
+    )
+    return conn
+
+# Function to retrieve column names from the specified table
+def get_columns_from_table(conn, schema_name, table_name):
+    query = f"""
+        SELECT COLUMN_NAME
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = '{schema_name}'
+        AND TABLE_NAME = '{table_name}'
+    """
+    cur = conn.cursor()
+    cur.execute(query)
+    columns = [row[0] for row in cur.fetchall()]
+    cur.close()
+    return columns
+
+# Function to calculate NULL percentage for each column
+def calculate_null_percentage(conn, schema_name, table_name, columns):
+    null_percentages = []
+    cur = conn.cursor()
+    
+    for column in columns:
+        query = f"""
+            SELECT 
+                '{column}' AS column_name, 
+                ROUND((1 - COUNT({column}) * 1.0 / COUNT(*)) * 100, 2) AS null_percentage
+            FROM {schema_name}.{table_name}
+        """
+        cur.execute(query)
+        result = cur.fetchone()
+        null_percentages.append({'column_name': result[0], 'null_percentage': result[1]})
+    
+    cur.close()
+    return null_percentages
+
+# Main function to run the process and write results to Excel
+def main():
+    # Connect to Snowflake
+    conn = get_snowflake_connection()
+
+    # Define schema and table
+    schema_name = '<YOUR_SCHEMA>'  # Replace with your schema
+    table_name = '<YOUR_TABLE_NAME>'  # Replace with your table name
+
+    # Get all column names from the table
+    columns = get_columns_from_table(conn, schema_name, table_name)
+
+    # Calculate NULL percentage for each column
+    null_percentages = calculate_null_percentage(conn, schema_name, table_name, columns)
+
+    # Convert the results to a Pandas DataFrame
+    df = pd.DataFrame(null_percentages)
+
+    # Write the DataFrame to an Excel file
+    output_file = 'null_percentage_report.xlsx'
+    df.to_excel(output_file, sheet_name='Null_Percentage', index=False)
+
+    print(f"Results written to {output_file}")
+
+    # Close the Snowflake connection
+    conn.close()
+
+if __name__ == "__main__":
+    main()
