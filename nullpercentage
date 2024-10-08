@@ -75,3 +75,8 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+"data_pattern_checks": {
+    "email_column": "^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$",
+    "date_column": "^\\d{4}-\\d{2}-\\d{2}$"  // Example regex for date pattern
+  }
