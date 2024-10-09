@@ -1,0 +1,24 @@
+import subprocess
+
+# List of Python scripts to run
+scripts_to_run = [
+    "null_percentage_validation.py",
+    "pk_uniqueness.py",
+    "pattern_validation.py",
+    "duplicate_records.py"
+]
+
+def run_scripts(scripts):
+    for script in scripts:
+        print(f"Running {script}...")
+        # Run each script using subprocess
+        result = subprocess.run(["python", script], capture_output=True, text=True)
+        
+        # Check if the script ran successfully
+        if result.returncode == 0:
+            print(f"{script} ran successfully.\n")
+        else:
+            print(f"Error running {script}: {result.stderr}")
+
+if __name__ == "__main__":
+    run_scripts(scripts_to_run)
